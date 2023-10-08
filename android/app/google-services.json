@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1040434160892",
+    "project_id": "binusrent",
+    "storage_bucket": "binusrent.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1040434160892:android:b1586ce65fe20db8b56379",
+        "android_client_info": {
+          "package_name": "inc.notchg.rentapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCbUoOhFbZVimdHc8TBNpwFGyBvqKjmERY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
