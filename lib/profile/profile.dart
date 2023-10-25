@@ -38,7 +38,7 @@ class _ProfileState extends State<Profile> {
       body: Column(
         children: [
           Container(
-            padding: const EdgeInsets.only(top: 40,bottom: 40),
+            padding: const EdgeInsets.only(top: 30,bottom: 30),
             width: MediaQuery.of(context).size.width,
             decoration: BoxDecoration(
               gradient: LinearGradient(

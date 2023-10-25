@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_profile_picture/flutter_profile_picture.dart';
 import 'package:intl/intl.dart';
+import 'package:rentapp/Classes/HistoryItemClass.dart';
 
 class History extends StatefulWidget {
   const History({super.key});
@@ -16,6 +17,8 @@ class _HistoryState extends State<History> {
   final User? user = FirebaseAuth.instance.currentUser;
 
   Stream<QuerySnapshot>? _historyStream;
+
+  HistoryItemClass currHistory = HistoryItemClass.empty();
 
   @override
   void initState() {
@@ -125,38 +128,42 @@ class _HistoryState extends State<History> {
                         }
 
                         return ListView(
+                          primary: false,
                           shrinkWrap: true,
                           children: snapshot.data!.docs.map((e) {
                             Map<String, dynamic> data = e.data()! as Map<String, dynamic>;
+
                             DateTime date = (data["time"] as Timestamp).toDate();
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  data["name"]
-                                ),
-                                const SizedBox(
-                                  height: 5,
-                                ),
-                                Text(
-                                  DateFormat.yMEd().add_jms().format(date),
-                                  style: TextStyle(
-                                    color: Colors.grey[400],
-                                    fontSize: 10
+                            return InkWell(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    data["name"]
                                   ),
-                                ),
-                                const SizedBox(
-                                  height: 5,
-                                ),
-                                Container(
-                                  height: 1,
-                                  width: MediaQuery.of(context).size.width,
-                                  color: Colors.grey[300],
-                                ),
-                                const SizedBox(
-                                  height: 20,
-                                )
-                              ],
+                                  const SizedBox(
+                                    height: 5,
+                                  ),
+                                  Text(
+                                    DateFormat.yMEd().add_jms().format(date),
+                                    style: TextStyle(
+                                      color: Colors.grey[400],
+                                      fontSize: 10
+                                    ),
+                                  ),
+                                  const SizedBox(
+                                    height: 5,
+                                  ),
+                                  Container(
+                                    height: 1,
+                                    width: MediaQuery.of(context).size.width,
+                                    color: Colors.grey[300],
+                                  ),
+                                  const SizedBox(
+                                    height: 20,
+                                  )
+                                ],
+                              ),
                             );
                           }).toList().cast(),
                         );

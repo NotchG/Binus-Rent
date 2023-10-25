@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
@@ -54,6 +55,7 @@ class _LoginState extends State<Login> {
     super.initState();
     EasyLoading.show(status: "loading...");
     checkInformation();
+
   }
 
   void submit(Map<String, dynamic> s) async {

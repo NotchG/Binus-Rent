@@ -1,18 +1,23 @@
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter_onedrive/flutter_onedrive.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:rentapp/Classes/BorrowItemClass.dart';
 
 class TakePicture extends StatefulWidget {
   final BorrowItemClass borrowItem;
   final bool borrow;
+  final String? notes;
+  final DateTime? pickedTime;
   final List<CameraDescription> cameras;
-  const TakePicture({super.key, required this.borrowItem, required this.borrow, required this.cameras});
+  const TakePicture({super.key, required this.borrowItem, required this.borrow, required this.cameras, this.notes, this.pickedTime});
 
   @override
   State<TakePicture> createState() => _TakePictureState();
@@ -24,9 +29,64 @@ class _TakePictureState extends State<TakePicture> {
   late Future<void> _initializeControllerFuture;
   int currIdx = 0;
   bool loading = true;
-  String imagePath = "";
+  XFile? imagePath;
   bool first = true;
   final User? user = FirebaseAuth.instance.currentUser;
+  final storageRef = FirebaseStorage.instance.ref();
+
+  void uploadLoading(TaskSnapshot taskSnapshot, Reference ref, ) {
+    final itemsRef = FirebaseFirestore.instance.collection("items").doc(widget.borrowItem.uid);
+    final historyRef = FirebaseFirestore.instance.collection("users").doc(user!.uid).collection("history");
+    switch (taskSnapshot.state) {
+      case TaskState.running:
+        final progress =
+            100.0 * (taskSnapshot.bytesTransferred / taskSnapshot.totalBytes);
+        EasyLoading.show(status: "Uploading $progress%");
+        break;
+      case TaskState.paused:
+        EasyLoading.show(status: "Uploading is paused");
+        break;
+      case TaskState.canceled:
+        EasyLoading.showError("Upload was cancelled", duration: Duration(seconds: 1));
+        break;
+      case TaskState.error:
+        EasyLoading.showError("An Error Occurred", duration: Duration(seconds: 1));
+        break;
+      case TaskState.success:
+        EasyLoading.show(status: "Getting download url");
+        ref.getDownloadURL().then((url) async {
+          if (widget.borrow) {
+            EasyLoading.show(status: "Saving to database");
+            await historyRef.add({
+              "name": "Peminjaman ${widget.borrowItem.name}",
+              "time": FieldValue.serverTimestamp(),
+              "imgUrl": url
+            });
+            await itemsRef.update({
+              "borrowUntil": widget.pickedTime,
+              "currBorrow": FirebaseAuth.instance.currentUser!.uid,
+              "available": false
+            });
+            EasyLoading.dismiss();
+            context.pushReplacement("/success", extra: true);
+          } else {
+            await historyRef.add({
+              "name": "Pengembalian ${widget.borrowItem.name}",
+              "time": FieldValue.serverTimestamp(),
+              "imgUrl": url
+            });
+            await itemsRef.update({
+              "borrowUntil": FieldValue.delete(),
+              "currBorrow": "",
+              "available": true
+            });
+            EasyLoading.dismiss();
+            context.pushReplacement("/success", extra: false);
+          }
+        });
+        break;
+    }
+  }
 
   void load() async {
     setState(() {
@@ -63,7 +123,7 @@ class _TakePictureState extends State<TakePicture> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      floatingActionButton: imagePath == "" ? Row(
+      floatingActionButton: imagePath == null ? Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           FloatingActionButton(
@@ -103,7 +163,7 @@ class _TakePictureState extends State<TakePicture> {
                 if(!mounted) return;
 
                 setState(() {
-                  imagePath = image.path;
+                  imagePath = image;
                 });
                 EasyLoading.dismiss();
               } catch (e) {
@@ -130,7 +190,7 @@ class _TakePictureState extends State<TakePicture> {
             heroTag: "retakeCamera",
             onPressed: loading ? null : () {
               setState(() {
-                imagePath = "";
+                imagePath = null;
                 load();
               });
             },
@@ -142,26 +202,29 @@ class _TakePictureState extends State<TakePicture> {
           FloatingActionButton(
             heroTag: "complete",
             onPressed: loading ? null : () async {
-              final itemsRef = FirebaseFirestore.instance.collection("items").doc(widget.borrowItem.uid);
-              final historyRef = FirebaseFirestore.instance.collection("users").doc(user!.uid).collection("history");
-              if (widget.borrow) {
-                await historyRef.add({
-                  "name": "Peminjaman ${widget.borrowItem.name}",
-                  "time": FieldValue.serverTimestamp()
-                });
-                itemsRef.update({
-                  "currBorrow": FirebaseAuth.instance.currentUser!.uid,
-                  "available": false
-                }).then((value) => context.pushReplacement("/success", extra: true));
-              } else {
-                await historyRef.add({
-                  "name": "Pengembalian ${widget.borrowItem.name}",
-                  "time": FieldValue.serverTimestamp()
-                });
-                itemsRef.update({
-                  "currBorrow": "",
-                  "available": true
-                }).then((value) => context.pushReplacement("/success", extra: false));
+              EasyLoading.show(status: "Loading...");
+              try {
+                // Upload raw data.
+                final ref = storageRef.child("${user!.displayName}/images/${widget.borrow ? "Peminjaman" : "Pengembalian"} ${DateFormat('yyyy-MM-dd-hh-mm-ss').format(DateTime.now())}.jpeg");
+                print(ref.fullPath);
+                final metadata = SettableMetadata(
+                  contentType: 'image/jpeg',
+                  customMetadata: {'picked-file-path': imagePath!.path},
+                );
+                if (kIsWeb) {
+                  Uint8List res = await imagePath!.readAsBytes();
+                  EasyLoading.show(status: "Uploading Data with ${res.length} bytes of data");
+                  ref.putData(res, metadata).snapshotEvents.listen((taskSnapshot) {
+                    uploadLoading(taskSnapshot, ref);
+                  });
+                } else {
+                  ref.putFile(File(imagePath!.path)).snapshotEvents.listen((taskSnapshot) {
+                    uploadLoading(taskSnapshot, ref);
+                  });;
+                }
+              } on FirebaseException catch (e) {
+                EasyLoading.showError("Error $e", duration: Duration(seconds: 1));
+                print(e.message);
               }
             },
             child: const Icon(Icons.check),
@@ -175,9 +238,9 @@ class _TakePictureState extends State<TakePicture> {
           future: _initializeControllerFuture,
           builder: (context, snapshot) {
             if(snapshot.connectionState == ConnectionState.done) {
-              return imagePath == "" ? CameraPreview(
+              return imagePath == null ? CameraPreview(
                   controller
-              ) : (kIsWeb ? Image.network(imagePath) : Image.file(File(imagePath)));
+              ) : (kIsWeb ? Image.network(imagePath!.path) : Image.file(File(imagePath!.path)));
             } else {
               return const Center(
                 child: CircularProgressIndicator(),

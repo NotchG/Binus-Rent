@@ -8,7 +8,8 @@ import 'package:transitioned_indexed_stack/transitioned_indexed_stack.dart';
 // MAIN PAGE OF BINUS RENT WITH BOTTOM NAVIGATION DRAWER
 
 class MainPage extends StatefulWidget {
-  const MainPage({super.key});
+  final Map<String, dynamic> location;
+  const MainPage({super.key, required this.location});
 
   @override
   State<MainPage> createState() => _MainPageState();
@@ -75,7 +76,7 @@ class _MainPageState extends State<MainPage> {
           curve: Curves.bounceInOut,
           duration: const Duration(milliseconds: 250),
           index: currPageIdx,
-          children: const [Home(), History(), Profile()],
+          children: [Home(location: widget.location,), History(), Profile()],
         ),
       ),
     );
